@@ -1,0 +1,197 @@
+<script>
+let products = [];
+let orderItems = new Map();
+
+// קבלת המחיר המתאים לפי מסלול המכירה
+function getDisplayPrice(product) {
+  const saleFormat = document.getElementById('saleFormat').value;
+  if (saleFormat === 'self') {
+    return product.fundPrice;
+  } else if (saleFormat === 'agent') {
+    return product.agentPrice;
+  }
+  return product.regularPrice;
+}
+
+// טעינת המוצרים בטעינת הדף
+window.onload = function() {
+  google.script.run
+    .withSuccessHandler(displayProducts)
+    .withFailureHandler(handleError)
+    .getProducts();
+};
+
+// הצגת המוצרים בדף
+function displayProducts(productsList) {
+  console.log('התקבלו מוצרים:', productsList);
+  products = productsList;
+  const grid = document.getElementById('productsGrid');
+  grid.innerHTML = '';
+
+  if (!products || products.length === 0) {
+    grid.innerHTML = '<div class="no-products">לא נמצאו מוצרים</div>';
+    return;
+  }
+
+  products.forEach((product, index) => {
+    console.log(`מציג מוצר ${index + 1}:`, product);
+    
+    const card = document.createElement('div');
+    card.className = 'product-card';
+    
+    const currentPrice = getDisplayPrice(product);
+    const savings = product.regularPrice - currentPrice;
+    const savingsPercentage = ((savings / product.regularPrice) * 100).toFixed(0);
+    
+    card.innerHTML = `
+      <img src="${product.image}" alt="${product.description}" class="product-image" onerror="this.src='https://via.placeholder.com/200x200?text=אין+תמונה'">
+      <div class="product-sku">מק"ט: ${product.sku}</div>
+      <div class="product-description">${product.description}</div>
+      <div class="product-price-container">
+        <div class="product-regular-price ${savings > 0 ? 'strikethrough' : ''}">
+          מחיר מחירון: ${product.regularPrice} ₪
+        </div>
+        <div class="product-sale-price">
+          מחיר לתשלום: ${currentPrice} ₪
+          ${savings > 0 ? `<span class="savings-badge">חיסכון ${savingsPercentage}%</span>` : ''}
+        </div>
+      </div>
+      ${product.notes ? `<div class="product-notes">${product.notes}</div>` : ''}
+      <div class="quantity-controls">
+        <button class="quantity-btn" onclick="updateQuantity(${index}, -1)">-</button>
+        <span class="quantity-display" id="quantity-${index}">0</span>
+        <button class="quantity-btn" onclick="updateQuantity(${index}, 1)">+</button>
+      </div>
+    `;
+    
+    grid.appendChild(card);
+  });
+}
+
+// עדכון המחירים בשינוי מסלול המכירה
+function updatePrices() {
+  if (products.length > 0) {
+    displayProducts(products);
+    updateOrderSummary();
+  }
+}
+
+// עדכון כמות המוצר
+function updateQuantity(productIndex, change) {
+  const quantityElement = document.getElementById(`quantity-${productIndex}`);
+  let currentQuantity = parseInt(quantityElement.textContent) || 0;
+  let newQuantity = Math.max(0, currentQuantity + change);
+  
+  quantityElement.textContent = newQuantity;
+  
+  if (newQuantity === 0) {
+    orderItems.delete(productIndex);
+  } else {
+    const product = products[productIndex];
+    orderItems.set(productIndex, {
+      sku: product.sku,
+      quantity: newQuantity,
+      price: getDisplayPrice(product),
+      regularPrice: product.regularPrice,
+      description: product.description
+    });
+  }
+  
+  updateOrderSummary();
+}
+
+// עדכון סיכום ההזמנה
+function updateOrderSummary() {
+  const orderItemsDiv = document.getElementById('orderItems');
+  const totalAmountSpan = document.getElementById('totalAmount');
+  let total = 0;
+  let totalSavings = 0;
+  
+  orderItemsDiv.innerHTML = '';
+  
+  orderItems.forEach((item, productIndex) => {
+    const itemTotal = item.quantity * item.price;
+    const itemSavings = (item.regularPrice - item.price) * item.quantity;
+    total += itemTotal;
+    totalSavings += itemSavings;
+    
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'order-item';
+    itemDiv.innerHTML = `
+      <div class="order-item-details">
+        <div class="order-item-title">${item.description} (${item.sku})</div>
+        <div class="order-item-quantity">${item.quantity} יחידות</div>
+        <div class="order-item-price">
+          <span class="regular-price ${itemSavings > 0 ? 'strikethrough' : ''}">${item.regularPrice} ₪</span>
+          <span class="sale-price">${item.price} ₪</span>
+        </div>
+      </div>
+      <div class="order-item-total">
+        <div>סה"כ: ${itemTotal} ₪</div>
+        ${itemSavings > 0 ? `<div class="savings">חיסכון: ${itemSavings} ₪</div>` : ''}
+      </div>
+    `;
+    orderItemsDiv.appendChild(itemDiv);
+  });
+  
+  const summaryDiv = document.createElement('div');
+  summaryDiv.className = 'order-summary-total';
+  summaryDiv.innerHTML = `
+    <div class="total-amount">סה"כ לתשלום: ${total} ₪</div>
+    ${totalSavings > 0 ? `<div class="total-savings">סה"כ חיסכון: ${totalSavings} ₪</div>` : ''}
+  `;
+  orderItemsDiv.appendChild(summaryDiv);
+  
+  totalAmountSpan.textContent = `${total} ₪`;
+}
+
+// שליחת ההזמנה
+function submitOrder() {
+  if (orderItems.size === 0) {
+    alert('נא לבחור לפחות מוצר אחד');
+    return;
+  }
+  
+  const orderData = {
+    firstName: document.getElementById('firstName').value,
+    lastName: document.getElementById('lastName').value,
+    fundNumber: document.getElementById('fundNumber').value,
+    fundName: document.getElementById('fundName').value,
+    phone: document.getElementById('phone').value,
+    email: document.getElementById('email').value,
+    saleFormat: document.getElementById('saleFormat').value,
+    items: Array.from(orderItems.values()),
+    totalAmount: parseFloat(document.getElementById('totalAmount').textContent)
+  };
+  
+  // בדיקת תקינות השדות
+  const requiredFields = ['firstName', 'lastName', 'fundNumber', 'fundName', 'phone', 'saleFormat'];
+  const missingFields = requiredFields.filter(field => !orderData[field]);
+  
+  if (missingFields.length > 0) {
+    alert('נא למלא את כל שדות החובה');
+    return;
+  }
+  
+  google.script.run
+    .withSuccessHandler(handleOrderSuccess)
+    .withFailureHandler(handleError)
+    .submitOrder(orderData);
+}
+
+// טיפול בהצלחת שליחת ההזמנה
+function handleOrderSuccess(response) {
+  if (response.success) {
+    alert('ההזמנה נשלחה בהצלחה!');
+    location.reload();
+  } else {
+    alert('אירעה שגיאה: ' + response.message);
+  }
+}
+
+// טיפול בשגיאות
+function handleError(error) {
+  console.error('שגיאה:', error);
+  alert('אירעה שגיאה: ' + error.toString());
+}
+</script> 

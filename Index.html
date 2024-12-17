@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html dir="rtl">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>מערכת הזמנות לקופות צדקה</title>
+  <?!= include('Stylesheet'); ?>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>מערכת הזמנות לקופות צדקה</h1>
+    </header>
+
+    <!-- טופס פרטי הקופה -->
+    <section class="fund-details">
+      <h2>פרטי הקופה</h2>
+      <div class="form-group">
+        <div class="input-group">
+          <label for="firstName">שם פרטי</label>
+          <input type="text" id="firstName" required>
+        </div>
+        <div class="input-group">
+          <label for="lastName">שם משפחה</label>
+          <input type="text" id="lastName" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-group">
+          <label for="fundNumber">מספר עמותה</label>
+          <input type="text" id="fundNumber" required>
+        </div>
+        <div class="input-group">
+          <label for="fundName">שם הקופה</label>
+          <input type="text" id="fundName" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-group">
+          <label for="phone">מספר טלפון</label>
+          <input type="tel" id="phone" required>
+        </div>
+        <div class="input-group">
+          <label for="email">כתובת מייל</label>
+          <input type="email" id="email" required>
+        </div>
+      </div>
+    </section>
+
+    <!-- רשימת המוצרים -->
+    <section class="products" id="productsList">
+      <h2>מוצרים זמינים</h2>
+      <div class="form-group">
+        <div class="input-group">
+          <label for="saleFormat">מסלול מכירה</label>
+          <select id="saleFormat" required onchange="updatePrices()">
+            <option value="">בחר מסלול מכירה</option>
+            <option value="self">מכירה עצמאית - מחיר לקופה</option>
+            <option value="agent">מכירה על ידי סוכן</option>
+          </select>
+        </div>
+      </div>
+      <div class="products-grid" id="productsGrid">
+        <!-- המוצרים יתווספו כאן דינמית -->
+      </div>
+    </section>
+
+    <!-- סיכום הזמנה -->
+    <section class="order-summary">
+      <h2>סיכום הזמנה</h2>
+      <div id="orderItems"></div>
+      <div class="total">
+        <span>סה"כ לתשלום:</span>
+        <span id="totalAmount">0 ₪</span>
+      </div>
+      <button onclick="submitOrder()" class="submit-btn">שלח הזמנה</button>
+    </section>
+  </div>
+
+  <?!= include('JavaScript'); ?>
+</body>
+</html> 
