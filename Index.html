@@ -73,6 +73,13 @@
         <span>סה"כ לתשלום:</span>
         <span id="totalAmount">0 ₪</span>
       </div>
+      <button onclick="showPaymentForm()" class="submit-btn">המשך לתשלום</button>
+    </section>
+
+    <!-- טופס תשלום -->
+    <section id="paymentSection" class="payment-section" style="display: none;">
+      <h2>תשלום</h2>
+      <div id="paymentFrame"></div>
       <button onclick="submitOrder()" class="submit-btn">שלח הזמנה</button>
     </section>
   </div>

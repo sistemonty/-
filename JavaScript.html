@@ -142,7 +142,159 @@ function updateOrderSummary() {
   `;
   orderItemsDiv.appendChild(summaryDiv);
   
-  totalAmountSpan.textContent = `${total} ₪`;
+  totalAmountSpan.textContent = total;
+  
+  // הוספת כפתור תשלום בסוף הטופס
+  const paymentButton = document.querySelector('.payment-button');
+  if (!paymentButton) {
+    const button = document.createElement('button');
+    button.className = 'payment-button';
+    button.textContent = 'המשך לתשלום';
+    button.onclick = showPaymentForm;
+    document.querySelector('.order-form').appendChild(button);
+  }
+}
+
+// הצגת טופס התשלום
+function showPaymentForm() {
+  if (orderItems.size === 0) {
+    alert('נא לבחור לפחות מוצר אחד');
+    return;
+  }
+
+  // בדיקת תקינות השדות
+  const requiredFields = ['firstName', 'lastName', 'fundNumber', 'fundName', 'phone'];
+  const missingFields = requiredFields.filter(field => !document.getElementById(field).value);
+  
+  if (missingFields.length > 0) {
+    alert('נא למלא את כל שדות החובה');
+    return;
+  }
+
+  const totalAmount = parseFloat(document.getElementById('totalAmount').textContent);
+  const fundNumber = document.getElementById('fundNumber').value;
+  const firstName = document.getElementById('firstName').value;
+  const lastName = document.getElementById('lastName').value;
+  const phone = document.getElementById('phone').value;
+  const email = document.getElementById('email').value;
+  
+  // ית האייפריים של נדרים פלוס
+  const nedarimIframe = document.createElement('iframe');
+  nedarimIframe.id = 'nedarimFrame';
+  nedarimIframe.style.width = '100%';
+  nedarimIframe.style.height = '600px';
+  nedarimIframe.style.border = '1px solid indianred';
+  nedarimIframe.scrolling = 'no';
+  
+  // יצירת חלון מודאל להצגת האייפריים
+  const modal = document.createElement('div');
+  modal.style.position = 'fixed';
+  modal.style.top = '0';
+  modal.style.left = '0';
+  modal.style.width = '100%';
+  modal.style.height = '100%';
+  modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+  modal.style.display = 'flex';
+  modal.style.justifyContent = 'center';
+  modal.style.alignItems = 'center';
+  modal.style.zIndex = '1000';
+  
+  const modalContent = document.createElement('div');
+  modalContent.style.backgroundColor = 'white';
+  modalContent.style.padding = '20px';
+  modalContent.style.borderRadius = '10px';
+  modalContent.style.width = '80%';
+  modalContent.style.maxWidth = '800px';
+  modalContent.style.maxHeight = '90vh';
+  modalContent.style.overflow = 'auto';
+  
+  const closeButton = document.createElement('button');
+  closeButton.textContent = 'X';
+  closeButton.style.float = 'left';
+  closeButton.style.border = 'none';
+  closeButton.style.background = 'none';
+  closeButton.style.fontSize = '20px';
+  closeButton.style.cursor = 'pointer';
+  closeButton.onclick = () => document.body.removeChild(modal);
+  
+  // הוספת כדה נסתר ל-API Valid
+  const apiValidInput = document.createElement('input');
+  apiValidInput.type = 'hidden';
+  apiValidInput.id = 'ApiValid';
+  apiValidInput.value = 'QrIRYmiomD'; // קוד ה-API הנכון
+  modalContent.appendChild(apiValidInput);
+
+  // הוספת שדה נסתר ל-MosadId
+  const mosadIdInput = document.createElement('input');
+  mosadIdInput.type = 'hidden';
+  mosadIdInput.id = 'MosadId';
+  mosadIdInput.value = '5777262'; // קוד המוסד הנכון
+  modalContent.appendChild(mosadIdInput);
+
+  // הוספת מאזין להודעות מהאייפריים
+  window.addEventListener('message', function(event) {
+    console.log('התקבלה הודעה מהאייפריים:', event.data);
+    
+    switch(event.data.Name) {
+      case 'Height':
+        // עדכון גובה האייפריים
+        nedarimIframe.style.height = (parseInt(event.data.Value) + 15) + 'px';
+        break;
+        
+      case 'TransactionResponse':
+        const response = event.data.Value;
+        let message = 'תגובה מנדרים פלוס:\n';
+        message += '=================\n';
+        message += `סטטוס: ${response.Status}\n`;
+        if (response.AshrayCode) message += `מספר אישור: ${response.AshrayCode}\n`;
+        if (response.TransactionId) message += `מספר עסקה: ${response.TransactionId}\n`;
+        if (response.Amount) message += `סכום: ${response.Amount}\n`;
+        if (response.Message) message += `הודעה: ${response.Message}\n`;
+        
+        alert(message);
+        console.log('תגובה מלאה מנדרים:', response);
+        
+        if (response.Status === 'OK') {
+          submitOrder();
+        }
+        break;
+    }
+  });
+  
+  // טעינת האייפריים
+  nedarimIframe.src = 'https://matara.pro/nedarimplus/iframe';
+
+  // הוספת כפתור תשלום
+  const payButton = document.createElement('button');
+  payButton.textContent = 'בצע תשלום';
+  payButton.style.cssText = 'cursor:pointer;color:white;background-color:#17a2b8;text-align:center;padding:10px 20px;border:none;border-radius:4px;margin-top:10px;';
+  payButton.onclick = function() {
+    // שליחת הפרטים לאייפריים
+    const data = {
+      Name: 'FinishTransaction2',
+      Value: {
+        Mosad: '5777262', // קוד המוסד הנכון
+        ApiValid: 'QrIRYmiomD', // קוד ה-API הנכון
+        PaymentType: 'Ragil',
+        Currency: '1',
+        FirstName: firstName,
+        LastName: lastName,
+        Phone: phone,
+        Mail: email || '',
+        Amount: totalAmount,
+        Tashlumim: '1',
+        Comment: 'הזמנת מוצרים',
+        ForceUpdateMatching: '1'
+      }
+    };
+    nedarimIframe.contentWindow.postMessage(data, '*');
+  };
+  
+  modalContent.appendChild(closeButton);
+  modalContent.appendChild(nedarimIframe);
+  modalContent.appendChild(payButton);
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
 }
 
 // שליחת ההזמנה
